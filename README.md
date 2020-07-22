@@ -9,16 +9,22 @@ This script is used to quickly compare exports of various member lists. It can c
 * `first_name,last_name,email`
 * `first_name,last_name,email,committee`
 
-The script may be invoked in two ways.
+The script may be invoked in three ways.
 
-To check Google Groups membership
+To check Google Groups membership. This will return a list of emails and names.
 
 ```
 $ ./compare-lists.py audit_group action-network-report.csv google-group-members.csv
 ```
 
-To check Slack membership
+To check Slack membership. This will return a list of emails and names.
 
 ```
 $ ./compare-lists.py audit_slack action-network-report.csv slack-members.csv
+```
+
+To check to see who is missing from a Google Group. This will return a CSV list of properly formatted email + name which may be used to invite people to a Google Group.
+
+```
+$ ./compare-lists.py missing_group action-network-report.csv google-group-members.csv
 ```

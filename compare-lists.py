@@ -60,13 +60,12 @@ class CompareLists(object):
                     raise Exception("unexpected action network report format")
         return an_members
 
-    def audit_group(self, an_export, google_export):
-
-        if not os.path.exists(google_export):
-            raise Exception("unable to find google group membership export %s" % google_export)
+    def _group_reader(self, group_export):
+        if not os.path.exists(group_export):
+            raise Exception("unable to find google group membership export %s" % group_export)
 
         group_members = []
-        with open(google_export, 'r') as g_csv:
+        with open(group_export, 'r') as g_csv:
             for g_row in csv.reader(g_csv):
                 if g_row[0].startswith('#'):
                     continue
@@ -76,8 +75,12 @@ class CompareLists(object):
                 email = g_row[0]
                 name = g_row[1]
                 group_members.append(Member(name, email))
+        return group_members
+
+    def audit_group(self, an_export, group_export):
 
         an_members = self._an_reader(an_export)
+        group_members = self._group_reader(group_export)
         LOG.info("read %s an members, %s google group members" % (len(an_members), len(group_members)))
 
         missing_count = 0
@@ -114,6 +117,17 @@ class CompareLists(object):
                 missing_count += 1
 
         print("%s out of %s slack members are missing from action network" % (missing_count, len(slack_members)))
-        
+
+    def missing_group(self, an_export, group_export):
+        an_members = self._an_reader(an_export)
+        group_members = self._group_reader(group_export)
+        LOG.info("read %s an members, %s google group members" % (len(an_members), len(group_members)))
+        missing_members = []
+        for an_member in an_members:
+            if not Member.contains(an_member, group_members):
+                missing_members.append(an_member)
+
+        print(','.join([str(x) for x in missing_members]))
+
 if __name__ == '__main__':
     fire.Fire(CompareLists)
