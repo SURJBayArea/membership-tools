@@ -23,6 +23,9 @@ class Member(object):
             if self.name.lower() == other.name.lower():
                 LOG.warn("matched %s by name - %s / %s" % (self.name, self.email, other.email))
                 return True
+            elif self.name.lower().find(other.name.lower()) > -1:
+                LOG.warn("fuzzy matched %s by name - %s / %s" % (self.name, self.email, other.email))
+                return True
             else:
                 return False
 
@@ -85,6 +88,11 @@ class CompareLists(object):
 
         missing_count = 0
         for group_member in group_members:
+            email_bits = group_member.email.split('@')
+            if email_bits[1] == 'surjbayarea.org':
+                LOG.warn("ignoring likely group membership email %s" % group_member.email)
+                continue
+
             if not Member.contains(group_member, an_members):
                 print("%s not found in action network" % (group_member))
                 missing_count += 1
