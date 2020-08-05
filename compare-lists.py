@@ -8,10 +8,11 @@ LOG = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 class Member(object):
-    def __init__(self, name, email, committee=None):
+    def __init__(self, name, email, committee=None, active=False):
         self.name = name
         self.email = email
         self.committee = committee
+        self.active = active
 
     def __eq__(self, other):
         if not isinstance(other, Member):
@@ -56,10 +57,13 @@ class CompareLists(object):
                     continue
                 if len(an_row) == 3:
                     [first_name, last_name, email] = an_row
-                    an_members.append(Member("%s %s" % (first_name, last_name), email))
-                elif len(an_row) == 4:
-                    [first_name, last_name, email, committee] = an_row
-                    an_members.append(Member("%s %s" % (first_name, last_name), email, committee))
+                    an_members.append(Member("%s %s" % (first_name, last_name), email, active=True))
+                elif len(an_row) >= 4:
+                    first_name = an_row[0]
+                    last_name = an_row[1]
+                    email = an_row[2]
+                    committee = an_row[3]
+                    an_members.append(Member("%s %s" % (first_name.strip(), last_name.strip()), email, committee, active=True))
                 else:
                     raise Exception("unexpected action network report format")
         return an_members
@@ -78,8 +82,31 @@ class CompareLists(object):
                     continue
                 email = g_row[0]
                 name = g_row[1]
-                group_members.append(Member(name, email))
+                group_members.append(Member(name, email, active=True))
         return group_members
+
+    def _slack_reader(self, slack_export):
+        if not os.path.exists(slack_export):
+            raise Exception("unable to find slack export %s" % slack_export)
+
+        slack_members = []
+        with open(slack_export, 'r') as s_csv:
+            for s_row in csv.reader(s_csv):
+                if s_row[0].startswith('#'):
+                    continue
+                if s_row[0] == 'username':
+                    continue
+
+                email = s_row[1]
+                name = s_row[7]
+                active = False
+                if s_row[2] == 'Member' or s_row[2] == 'Admin' or s_row[2] == 'Owner':
+                    active = True
+                
+                slack_members.append(Member(name, email, active=active))
+
+        return slack_members
+
 
     def audit_group(self, an_export, group_export):
 
@@ -101,31 +128,34 @@ class CompareLists(object):
         print("%s out of %s group members are missing from action network" % (missing_count, len(group_members)))
 
     def audit_slack(self, an_export, slack_export):
-        if not os.path.exists(slack_export):
-            raise Exception("unable to find slack export %s" % slack_export)
-
-        slack_members = []
-        with open(slack_export, 'r') as s_csv:
-            for s_row in csv.reader(s_csv):
-                if s_row[0].startswith('#'):
-                    continue
-                if s_row[0] == 'username':
-                    continue
-
-                email = s_row[1]
-                name = s_row[7]
-                slack_members.append(Member(name, email))
-
+        slack_members = self._slack_reader(slack_export)
         an_members = self._an_reader(an_export)
         LOG.info("read %s an members, %s slack members" % (len(an_members), len(slack_members)))
 
         missing_count = 0
+        inactive_count = 0
         for slack_member in slack_members:
+            if not slack_member.active:
+                inactive_count += 1
+                continue
+
             if not Member.contains(slack_member, an_members):
                 print("%s not found in action network" % (slack_member))
                 missing_count += 1
 
-        print("%s out of %s slack members are missing from action network" % (missing_count, len(slack_members)))
+        print("%s out of %s active slack members are missing from action network" % (missing_count, len(slack_members) - inactive_count))
+
+
+    def missing_slack(self, an_export, slack_export):
+        an_members = self._an_reader(an_export)
+        slack_members = [x for x in self._slack_reader(slack_export) if x.active]
+        LOG.info("read %s an members, %s slack members" % (len(an_members), len(slack_members)))
+        missing_members = []
+        for an_member in an_members:
+            if not Member.contains(an_member, slack_members):
+                missing_members.append(an_member)
+
+        print(','.join([str(x) for x in missing_members]))
 
     def missing_group(self, an_export, group_export):
         an_members = self._an_reader(an_export)
