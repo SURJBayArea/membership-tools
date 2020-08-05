@@ -23,7 +23,8 @@ class Member(object):
             if self.name.lower() == other.name.lower():
                 LOG.warn("matched %s by name - %s / %s" % (self.name, self.email, other.email))
                 return True
-            elif self.name.lower().find(other.name.lower()) > -1:
+            elif len(self.name) > 0 and len(other.name) > 0 and \
+                 self.name.lower().find(other.name.lower()) > -1:
                 LOG.warn("fuzzy matched %s by name - %s / %s" % (self.name, self.email, other.email))
                 return True
             else:
