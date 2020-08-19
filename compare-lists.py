@@ -14,6 +14,12 @@ class Member(object):
         self.committee = committee
         self.active = active
 
+    def gmail_norm(email):
+        [name, domain] = email.split('@')
+        name_norm = name.replace('.', '')
+        return "%s@%s" % (name_norm, domain)
+
+
     def __eq__(self, other):
         if not isinstance(other, Member):
             return false
@@ -27,6 +33,9 @@ class Member(object):
             elif len(self.name) > 0 and len(other.name) > 0 and \
                  self.name.lower().find(other.name.lower()) > -1:
                 LOG.warn("fuzzy matched %s by name - %s / %s" % (self.name, self.email, other.email))
+                return True
+            elif Member.gmail_norm(self.email) == Member.gmail_norm(other.email):
+                LOG.warn("fuzzy matched %s by gmail-normalized email %s / %s" % (self.name, self.email, other.email))
                 return True
             else:
                 return False
@@ -119,6 +128,10 @@ class CompareLists(object):
             email_bits = group_member.email.split('@')
             if email_bits[1] == 'surjbayarea.org':
                 LOG.warn("ignoring likely group membership email %s" % group_member.email)
+                continue
+
+            if email_bits[0].lower().find('surj') >= 0:
+                LOG.warn("ignoring possible group alias email %s" % group_member.email)
                 continue
 
             if not Member.contains(group_member, an_members):
