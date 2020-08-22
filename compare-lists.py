@@ -170,7 +170,7 @@ class CompareLists(object):
 
         print(','.join([str(x) for x in missing_members]))
 
-    def missing_group(self, an_export, group_export):
+    def missing_group(self, an_export, group_export, csv_list=False, committee=None):
         an_members = self._an_reader(an_export)
         group_members = self._group_reader(group_export)
         LOG.info("read %s an members, %s google group members" % (len(an_members), len(group_members)))
@@ -179,7 +179,28 @@ class CompareLists(object):
             if not Member.contains(an_member, group_members):
                 missing_members.append(an_member)
 
-        print(','.join([str(x) for x in missing_members]))
+        committee_members = {}
+        for member in missing_members:
+            if member.committee not in committee_members:
+                committee_members[member.committee] = [member]
+            else:
+                committee_members[member.committee].append(member)
+
+        if committee not in committee_members:
+            raise Exception("%s committee not found" % committee)
+
+        if csv_list:
+            if committee:
+                print(','.join([str(x) for x in committee_members[committee]]))
+            else:
+                print(','.join([str(x) for x in missing_members]))
+        else:
+            for iter_committee in committee_members.keys():
+                if committee and committee != iter_committee:
+                    continue
+                print("\n# Committee - %s\n" % iter_committee)
+                for member in committee_members[iter_committee]:
+                    print("  %s" % member)
 
 if __name__ == '__main__':
     fire.Fire(CompareLists)
