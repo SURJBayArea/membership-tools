@@ -47,13 +47,48 @@ class Member(object):
 
         return False
 
+    def committee_members(members):
+        members_dict = {}
+        for member in members:
+            if not member.committee:
+                continue
+
+            if member.committee not in members_dict:
+                members_dict[member.committee] = [member]
+            else:
+                members_dict[member.committee].append(member)
+
+        return members_dict
+
     def __str__(self):
         return "%s <%s>" % (self.name, self.email)
 
     def __repr__(self):
         return self.__str__()
-    
+
 class CompareLists(object):
+    def output(members, csv_list=False, committee=None):
+        if committee and \
+           committee not in members:
+            raise Exception("%s committee not found" % committee)
+
+        if csv_list:
+            if committee:
+                print(','.join([str(x) for x in members[committee]]))
+            else:
+                missing_members = []
+                for committee, committee_members in members.items():
+                    missing_members = missing_members + committee_members
+
+                print(','.join([str(x) for x in [missing_members]]))
+        else:
+            for iter_committee in members.keys():
+                if committee and committee != iter_committee:
+                    continue
+                print("\n# Committee - %s\n" % iter_committee)
+                for member in members[iter_committee]:
+                    print("  %s" % member)
+
     def _an_reader(self, an_export):
         if not os.path.exists(an_export):
             raise Exception("unable to find action network export %s" % an_export)
@@ -111,19 +146,19 @@ class CompareLists(object):
                 active = False
                 if s_row[2] == 'Member' or s_row[2] == 'Admin' or s_row[2] == 'Owner':
                     active = True
-                
+
                 slack_members.append(Member(name, email, active=active))
 
         return slack_members
 
 
-    def audit_group(self, an_export, group_export):
+    def audit_group(self, an_export, group_export, csv_list=False, committee=None):
 
         an_members = self._an_reader(an_export)
         group_members = self._group_reader(group_export)
         LOG.info("read %s an members, %s google group members" % (len(an_members), len(group_members)))
 
-        missing_count = 0
+        missing_members = []
         for group_member in group_members:
             email_bits = group_member.email.split('@')
             if email_bits[1] == 'surjbayarea.org':
@@ -135,10 +170,10 @@ class CompareLists(object):
                 continue
 
             if not Member.contains(group_member, an_members):
-                print("%s not found in action network" % (group_member))
-                missing_count += 1
+                missing_members.append(group_member)
 
-        print("%s out of %s group members are missing from action network" % (missing_count, len(group_members)))
+        committee_members = {"Unknown": missing_members}
+        CompareLists.output(committee_members, csv_list, committee)
 
     def audit_slack(self, an_export, slack_export):
         slack_members = self._slack_reader(slack_export)
@@ -157,7 +192,6 @@ class CompareLists(object):
                 missing_count += 1
 
         print("%s out of %s active slack members are missing from action network" % (missing_count, len(slack_members) - inactive_count))
-
 
     def missing_slack(self, an_export, slack_export):
         an_members = self._an_reader(an_export)
@@ -179,28 +213,20 @@ class CompareLists(object):
             if not Member.contains(an_member, group_members):
                 missing_members.append(an_member)
 
-        committee_members = {}
+        committee_members = Member.committee_members(missing_members)
+        CompareLists.output(committee_members, csv_list, committee)
+
+    def audit_admin(self, an_members_export, an_admins_export):
+        an_members = self._an_reader(an_members_export)
+        an_admins = self._an_reader(an_admins_export)
+        LOG.info("read %s an members, %s admins" % (len(an_members), len(an_admins)))
+        missing_members = []
+        for an_admin in an_admins:
+            if not Member.contains(an_admin, an_members):
+                missing_members.append(an_admin)
+
         for member in missing_members:
-            if member.committee not in committee_members:
-                committee_members[member.committee] = [member]
-            else:
-                committee_members[member.committee].append(member)
-
-        if committee not in committee_members:
-            raise Exception("%s committee not found" % committee)
-
-        if csv_list:
-            if committee:
-                print(','.join([str(x) for x in committee_members[committee]]))
-            else:
-                print(','.join([str(x) for x in missing_members]))
-        else:
-            for iter_committee in committee_members.keys():
-                if committee and committee != iter_committee:
-                    continue
-                print("\n# Committee - %s\n" % iter_committee)
-                for member in committee_members[iter_committee]:
-                    print("  %s" % member)
+            print(member)
 
 if __name__ == '__main__':
     fire.Fire(CompareLists)
