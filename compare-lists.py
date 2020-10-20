@@ -16,8 +16,11 @@ class Member(object):
 
     def gmail_norm(email):
         [name, domain] = email.split('@')
-        name_norm = name.replace('.', '')
-        return "%s@%s" % (name_norm, domain)
+        if domain != 'gmail.com' and domain != 'googlemail.com':
+            return email
+
+        name_norm = name.replace('.', '', 5)
+        return "%s@gmail.com" % (name_norm)
 
 
     def __eq__(self, other):
@@ -65,6 +68,9 @@ class Member(object):
 
     def __repr__(self):
         return self.__str__()
+
+    def __hash__(self):
+        return hash((self.email, self.name))
 
 class CompareLists(object):
     def output(members, csv_list=False, committee=None):
@@ -213,7 +219,11 @@ class CompareLists(object):
             if not Member.contains(an_member, group_members):
                 missing_members.append(an_member)
 
-        committee_members = Member.committee_members(missing_members)
+        if len(set([x for x in missing_members if x.committee])):
+            committee_members = Member.committee_members(missing_members)
+        else:
+            committee_members = {'Unknown': missing_members}
+
         CompareLists.output(committee_members, csv_list, committee)
 
     def audit_admin(self, an_members_export, an_admins_export):
